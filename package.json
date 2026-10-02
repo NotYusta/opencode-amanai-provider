@@ -1,15 +1,27 @@
 {
   "name": "opencode-amanai-provider",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Amanai provider plugin for OpenCode (OpenAI-compatible API at https://api.amanai.dev/v1)",
   "type": "module",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/NotYusta/opencode-amanai-provider.git"
+  },
+  "homepage": "https://github.com/NotYusta/opencode-amanai-provider#readme",
+  "bugs": {
+    "url": "https://github.com/NotYusta/opencode-amanai-provider/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "exports": {
     ".": "./src/index.ts"
   },
   "files": [
     "src",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
   "keywords": [
     "opencode",

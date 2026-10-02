@@ -1,5 +1,8 @@
 # opencode-amanai-provider
 
+[![npm version](https://img.shields.io/npm/v/opencode-amanai-provider.svg)](https://www.npmjs.com/package/opencode-amanai-provider)
+[![license](https://img.shields.io/npm/l/opencode-amanai-provider.svg)](https://github.com/NotYusta/opencode-amanai-provider/blob/main/LICENSE)
+
 An [OpenCode](https://opencode.ai) plugin that registers the **Amanai**
 provider — an OpenAI-compatible API at <https://api.amanai.dev/v1> — and
 discovers the models it serves (currently ~47: GLM, Qwen, Kimi, DeepSeek,
