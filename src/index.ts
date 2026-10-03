@@ -23,6 +23,12 @@ const BASE_URL_ENV = "AMANAI_BASE_URL"
 /** Thinking value that selects the model default, so it needs no variant. */
 const DEFAULT_THINKING = "auto"
 
+/** Retry policy for transient Amanai failures, mirroring the Command Code provider. */
+const RETRY_MAX_ATTEMPTS = 5
+const RETRY_BASE_DELAY_MS = 500
+const RETRY_MAX_DELAY_MS = 60_000
+const RETRY_JITTER = 0.2
+
 /** Reasoning-effort sets advertised by the live Amanai model inventory. */
 const EFFORTS = {
   full: ["auto", "low", "medium", "high", "xhigh", "max"],
@@ -120,6 +126,24 @@ function toInputModalities(modalities: readonly string[] | undefined): string[] 
 }
 
 /**
+ * Retry transient failures the way the Command Code provider does: rate limits,
+ * server errors, and connection failures (an error without an HTTP status) are
+ * retryable, while other client errors stay terminal.
+ */
+function isRetryableStatus(status: number | undefined): boolean {
+  if (status === undefined) return true
+  if (status === 408 || status === 425 || status === 429) return true
+  return status >= 500 && status < 600
+}
+
+/** Exponential backoff with jitter, capped like the Command Code provider. */
+function retryDelayMs(attempt: number): number {
+  const exponential = RETRY_BASE_DELAY_MS * 2 ** Math.max(0, attempt - 1)
+  const jitter = exponential * RETRY_JITTER * Math.random()
+  return Math.min(exponential + jitter, RETRY_MAX_DELAY_MS)
+}
+
+/**
  * Turn Amanai's advertised thinking levels into reasoning-effort variants.
  * The default level is skipped because omitting the variant already selects it.
  */
@@ -186,6 +210,22 @@ export default Plugin.define({
     const providerID = Provider.ID.make(PROVIDER_ID)
     const source = { models: await discoverModels().catch(() => fallbackInventory()) }
 
+    // Retry transient Amanai failures - including ones that arrive mid-stream -
+    // instead of ending the turn. The retry hook runs after OpenCode classifies
+    // the failure and can make a would-be terminal error retryable.
+    const retry = await ctx.session.hook(
+      "retry",
+      (event) => {
+        if (event.attempt >= RETRY_MAX_ATTEMPTS) {
+          event.decision = { retry: false }
+          return
+        }
+        if (!isRetryableStatus(event.error.status)) return
+        event.decision = { retry: true, delay: retryDelayMs(event.attempt) }
+      },
+      { providerID: PROVIDER_ID },
+    )
+
     // Make the API key available through both the AMANAI_API_KEY environment
     // variable and an interactive /connect entry.
     try {
@@ -234,6 +274,9 @@ export default Plugin.define({
         .catch(() => {})
     }, refreshMs)
 
-    return () => clearInterval(timer)
+    return () => {
+      clearInterval(timer)
+      void retry.dispose()
+    }
   },
 })
